@@ -37,7 +37,7 @@ def _make_divisible(v, divisor, min_value=None):
 
 
 class MobileNetV2(nn.Module):
-    def __init__(self, num_classes=1000, width_mult=1.0, inverted_residual_setting=None, 
+    def __init__(self, num_classes=1000, width_mult=1.0, inverted_residual_setting=None, DPACS=False,
                  round_nearest=8, in_size=(224, 224), block = InvertedResidual, **kwargs):
         """
         MobileNet V2 main class
@@ -55,16 +55,28 @@ class MobileNetV2(nn.Module):
         h, w = in_size
 
         if inverted_residual_setting is None:
-            inverted_residual_setting = [
-                # t, c, n, s, tile
-                [1, 16, 1, 1, 16],
-                [6, 24, 2, 2, 8],
-                [6, 32, 3, 2, 4],
-                [6, 64, 4, 2, 2],
-                [6, 96, 3, 1, 2],
-                [6, 160, 3, 2, 2],
-                [6, 320, 1, 1, 2],
-            ]
+            if DPACS:
+                inverted_residual_setting = [
+                    # t, c, n, s, tile
+                    [1, 16, 1, 1, 1],
+                    [6, 24, 2, 2, 1],
+                    [6, 32, 3, 2, 1],
+                    [6, 64, 4, 2, 1],
+                    [6, 96, 3, 1, 1],
+                    [6, 160, 3, 2, 1],
+                    [6, 320, 1, 1, 1],
+                ]
+            else:
+                inverted_residual_setting = [
+                    # t, c, n, s, tile
+                    [1, 16, 1, 1, 16],
+                    [6, 24, 2, 2, 8],
+                    [6, 32, 3, 2, 4],
+                    [6, 64, 4, 2, 2],
+                    [6, 96, 3, 1, 2],
+                    [6, 160, 3, 2, 2],
+                    [6, 320, 1, 1, 2],
+                ]
         # only check the first element, assuming user knows t,c,n,s are required
         if len(inverted_residual_setting) == 0 or len(inverted_residual_setting[0]) != 5:
             raise ValueError("inverted_residual_setting should be non-empty "
@@ -77,14 +89,17 @@ class MobileNetV2(nn.Module):
         w = conv2d_out_dim(w, kernel_size=3, stride=2, padding=1)
         self.flops_conv1 = torch.Tensor([3 * h * w * 3 * input_channel])
         stage_idx = 0
+        channel_stage = False if DPACS else True
         # building inverted residual blocks
         for t, c, n, s, tile in inverted_residual_setting:
             output_channel = _make_divisible(c * width_mult, round_nearest)
             for i in range(n):
                 stride = s if i == 0 else 1
-                features.append(block(input_channel, output_channel, stride, 
+                features.append(block(input_channel, output_channel, stride, channel_stage=channel_stage,
                                       expand_ratio=t, h=h, w=w, eta=tile, stage_idx=stage_idx, **kwargs))
                 stage_idx += 1
+                if stage_idx >= 6:
+                    channel_stage = True
                 h = conv2d_out_dim(h, kernel_size=3, stride=stride, padding=1)
                 w = conv2d_out_dim(w, kernel_size=3, stride=stride, padding=1)
                 input_channel = output_channel

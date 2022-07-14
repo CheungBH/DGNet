@@ -61,10 +61,11 @@ class Sequential_DG(nn.Sequential):
 
 
 class InvertedResidual(nn.Module):
-    def __init__(self, inp, oup, stride, expand_ratio, h, w, eta, stage_idx=-1, **kwargs):
+    def __init__(self, inp, oup, stride, expand_ratio, h, w, eta, stage_idx=-1, channel_stage=True, DPACS=False, **kwargs):
         super(InvertedResidual, self).__init__()
         self.stride = stride
         self.stage_idx = stage_idx
+        self.DPACS = DPACS
         assert stride in [1, 2]
 
         self.height = conv2d_out_dim(h, kernel_size=3, stride=stride, padding=1)
@@ -87,11 +88,17 @@ class InvertedResidual(nn.Module):
         if self.use_res_connect:
             self.conv = Sequential_DG(layers)
             # channel mask
-            self.mask_c = Mask_c(inp, hidden_dim, **kwargs)
+            if channel_stage:
+                self.mask_c = Mask_c(inp, hidden_dim, DPACS=DPACS, **kwargs)
             flops_mkc = self.mask_c.get_flops()
             # spatial mask
-            self.mask_s = Mask_s(self.height, self.width, inp, eta, eta, **kwargs)
-            self.upsample = nn.Upsample(size=(h, w), mode='nearest')
+            if self.DPACS:
+                self.mask_s = Mask_s(self.height, self.width, inp, eta, eta, DPACS=DPACS, **kwargs)
+                self.upsample = nn.Upsample(size=(h, w), mode='nearest')
+            else:
+                self.mask_s = Mask_s(int(stride * self.height_2), int(stride * self.width_2), inp, eta, eta,
+                                     DPACS=DPACS, **kwargs)
+                self.pooling = nn.MaxPool2d(kernel_size=stride)
             flops_mks = self.mask_s.get_flops()
         else:
             self.conv = nn.Sequential(*layers)
@@ -125,7 +132,8 @@ class InvertedResidual(nn.Module):
         else:
             x_in, norm_1, norm_2, flops = input
             # channel mask
-            mask_c, norm_c, norm_c_t = self.mask_c(x_in) # [N, C_out, 1, 1]
+            if self.DPACS:
+                mask_c, norm_c, norm_c_t = self.mask_c(x_in) # [N, C_out, 1, 1]
             # spatial mask
             mask_s_m, norm_s, norm_s_t = self.mask_s(x_in) # [N, 1, h, w]
             mask_s1 = self.upsample1(mask_s_m) # [N, 1, H1, W1]
