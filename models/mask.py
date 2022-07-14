@@ -63,7 +63,7 @@ class Mask_s(nn.Module):
         self.eleNum_s = torch.Tensor([self.mask_h*self.mask_w])
         # spatial attention
         if DPACS:
-            self.atten_s = nn.Conv2d(planes, 1, kernel_size=1, stride=1, bias=bias>=0, padding=1)
+            self.atten_s = nn.Conv2d(planes, 1, kernel_size=1, stride=1, bias=bias>=0, padding=0)
         else:
             self.atten_s = nn.Conv2d(planes, 1, kernel_size=3, stride=1, bias=bias>=0, padding=1)
 

@@ -120,8 +120,9 @@ class Bottleneck(nn.Module):
         self.height_2 = conv2d_out_dim(h, 3, dilation, stride, dilation)
         self.width_2 = conv2d_out_dim(w, 3, dilation, stride, dilation)
         if self.DPACS:
-            self.mask_s = Mask_s(self.height_2, self.width_2, inplanes, eta, eta, DPACS=DPACS, **kwargs)
-            self.pooling = nn.MaxPool2d(kernel_size=2)
+            self.mask_s = Mask_s(int(stride*self.height_2), int(stride*self.width_2), inplanes, eta, eta, DPACS=DPACS,
+                                 **kwargs)
+            self.pooling = nn.MaxPool2d(kernel_size=stride)
         else:
             self.mask_s = Mask_s(self.height_2, self.width_2, inplanes, eta, eta, DPACS=DPACS, **kwargs)
             self.upsample_1 = nn.Upsample(size=(self.height_1, self.width_1), mode='nearest')
