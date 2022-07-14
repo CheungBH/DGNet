@@ -135,7 +135,8 @@ class MobileNetV2(nn.Module):
         norm1 = torch.zeros(1, batch_num+1).to(x.device)
         norm2 = torch.zeros(1, batch_num+1).to(x.device)
         flops = torch.zeros(1, batch_num+2).to(x.device)
-        x, norm1, norm2, flops = self.features((x, norm1, norm2, flops))
+        meta = {"saliency_mask": x, "stage_id": 0}
+        x, norm1, norm2, flops, meta = self.features((x, norm1, norm2, flops, meta))
         x = x.mean([2, 3])
         x = self.classifier(x)
         # norm and flops
@@ -166,6 +167,8 @@ class MobileNetV2(nn.Module):
     def get_loss(self, output, label, batch_size, den_target, lbda, gamma, p,
                  mask_norm_s, mask_norm_c, norm_s_t, norm_c_t,
                  flops_real, flops_mask, flops_ori):
+        if label is None:
+            return 0, 0, 0
         closs, rloss, bloss = self.criterion(output, label, flops_real, flops_mask,
                 flops_ori, batch_size, den_target, lbda, mask_norm_s, mask_norm_c,
                 norm_s_t, norm_c_t, gamma, p)

@@ -30,9 +30,9 @@ class ConvBNReLU_1st(nn.Sequential):
         )
     
     def forward(self, input):
-        x, norm_1, norm_2, flops = input
+        x, norm_1, norm_2, flops, meta = input
         x = super(ConvBNReLU_1st, self).forward(x)
-        return x, norm_1, norm_2, flops
+        return x, norm_1, norm_2, flops, meta
 
 
 class Sequential_DG(nn.Sequential):
@@ -120,7 +120,7 @@ class InvertedResidual(nn.Module):
 
     def forward(self, input):
         if not self.use_res_connect:
-            x, norm_1, norm_2, flops = input
+            x, norm_1, norm_2, flops, meta = input
             x = self.conv(x)
             norm_s = torch.ones((x.shape[0], self.spatial), device=x.device).sum(1)
             norm_c = torch.ones((x.shape[0], self.hidden_dim), device=x.device).sum(1)
@@ -128,9 +128,10 @@ class InvertedResidual(nn.Module):
             norm_2 = torch.cat((norm_2, torch.cat((norm_c, self.norm_c_t.to(x.device))).unsqueeze(0)))
             flops_blk = torch.cat((torch.ones(x.shape[0])*self.flops_full, self.flops_mask, self.flops_full)).to(flops.device)
             flops = torch.cat((flops, flops_blk.unsqueeze(0)))
-            return (x, norm_1, norm_2, flops)
+            meta["stage_id"] += 1
+            return (x, norm_1, norm_2, flops, meta)
         else:
-            x_in, norm_1, norm_2, flops = input
+            x_in, norm_1, norm_2, flops, meta = input
 
             mask_s_m, norm_s, norm_s_t = self.mask_s(x_in) # [N, 1, h, w]
             # channel mask
@@ -146,7 +147,8 @@ class InvertedResidual(nn.Module):
             # flops
             flops_blk = self.get_flops(mask_c, mask_s)
             flops = torch.cat((flops, flops_blk.unsqueeze(0)))
-            return (x+x_in, norm_1, norm_2, flops)
+            meta["stage_id"] += 1
+            return (x+x_in, norm_1, norm_2, flops, meta)
 
     def get_flops(self, mask_c, mask_s_up):
         s_sum = mask_s_up.sum((1,2,3))
