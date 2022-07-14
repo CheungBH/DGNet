@@ -163,10 +163,11 @@ class Bottleneck(nn.Module):
         identity = x
         # spatial mask
         mask_s_m, norm_s, norm_s_t = self.mask_s(x)# [N, 1, h, w]
-        norm_c1_t, norm_c2_t = torch.ones(1) * self.conv2.in_channels, torch.ones(1) * self.conv2.out_channels
+        norm_c1_t, norm_c2_t = torch.ones(1).cuda() * self.conv2.in_channels, \
+                               torch.ones(1).cuda() * self.conv2.out_channels
         norm_c1, norm_c2 = norm_c1_t.repeat(x.shape[0]), norm_c2_t.repeat(x.shape[0])
-        mask_c1, mask_c2 = torch.ones(x.shape[0], self.conv2.in_channels, 1, 1), \
-                           torch.ones(x.shape[0], self.conv2.out_channels, 1, 1),
+        mask_c1, mask_c2 = torch.ones(x.shape[0], self.conv2.in_channels, 1, 1).cuda(), \
+                           torch.ones(x.shape[0], self.conv2.out_channels, 1, 1).cuda(),
         mask_s1 = self.upsample_1(mask_s_m) # [N, 1, H1, W1]
         mask_s = self.upsample_2(mask_s_m) # [N, 1, H2, W2]
         if self.channel_stage:

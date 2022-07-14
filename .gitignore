@@ -14,3 +14,8 @@ logs/
 
 # IDE
 .vscode
+
+
+.idea/
+trained_models_cls/
+
