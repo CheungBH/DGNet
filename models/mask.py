@@ -144,7 +144,10 @@ class Mask_c(nn.Module):
         return mask_c, norm, norm_t
 
     def get_flops(self):
-        flops = self.inplanes * self.bottleneck + self.bottleneck * self.outplanes
+        if self.DPACS:
+            flops = self.inplanes * self.outplanes / self.group_size
+        else:
+            flops = self.inplanes * self.bottleneck + self.bottleneck * self.outplanes
         return flops
 
     def expand(self, x):

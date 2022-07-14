@@ -76,13 +76,15 @@ class MobileNetV2(nn.Module):
         h = conv2d_out_dim(h, kernel_size=3, stride=2, padding=1)
         w = conv2d_out_dim(w, kernel_size=3, stride=2, padding=1)
         self.flops_conv1 = torch.Tensor([3 * h * w * 3 * input_channel])
+        stage_idx = 0
         # building inverted residual blocks
         for t, c, n, s, tile in inverted_residual_setting:
             output_channel = _make_divisible(c * width_mult, round_nearest)
             for i in range(n):
                 stride = s if i == 0 else 1
                 features.append(block(input_channel, output_channel, stride, 
-                                      expand_ratio=t, h=h, w=w, eta=tile, **kwargs))
+                                      expand_ratio=t, h=h, w=w, eta=tile, stage_idx=stage_idx, **kwargs))
+                stage_idx += 1
                 h = conv2d_out_dim(h, kernel_size=3, stride=stride, padding=1)
                 w = conv2d_out_dim(w, kernel_size=3, stride=stride, padding=1)
                 input_channel = output_channel

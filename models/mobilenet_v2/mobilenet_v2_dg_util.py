@@ -61,9 +61,10 @@ class Sequential_DG(nn.Sequential):
 
 
 class InvertedResidual(nn.Module):
-    def __init__(self, inp, oup, stride, expand_ratio, h, w, eta, **kwargs):
+    def __init__(self, inp, oup, stride, expand_ratio, h, w, eta, stage_idx=-1, **kwargs):
         super(InvertedResidual, self).__init__()
         self.stride = stride
+        self.stage_idx = stage_idx
         assert stride in [1, 2]
 
         self.height = conv2d_out_dim(h, kernel_size=3, stride=stride, padding=1)
