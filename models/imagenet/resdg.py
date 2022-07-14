@@ -119,19 +119,19 @@ class Bottleneck(nn.Module):
         self.height_1, self.width_1 = h, w
         self.height_2 = conv2d_out_dim(h, 3, dilation, stride, dilation)
         self.width_2 = conv2d_out_dim(w, 3, dilation, stride, dilation)
-        self.mask_s = Mask_s(self.height_2, self.width_2, inplanes, eta, eta, **kwargs)  
+        self.mask_s = Mask_s(self.height_2, self.width_2, inplanes, eta, eta, DPACS=DPACS, **kwargs)
         self.upsample_1 = nn.Upsample(size=(self.height_1, self.width_1), mode='nearest')
         self.upsample_2 = nn.Upsample(size=(self.height_2, self.width_2), mode='nearest')
         # conv 1
         self.conv1 = conv1x1(inplanes, width)
         self.bn1 = norm_layer(width)
         if channel_stage:
-            self.mask_c1 = Mask_c(inplanes, width, **kwargs)
+            self.mask_c1 = Mask_c(inplanes, width, DPACS=DPACS, **kwargs)
         # conv 2
         self.conv2 = conv3x3(width, width, stride, groups, dilation)
         self.bn2 = norm_layer(width)
         if channel_stage and not DPACS:
-            self.mask_c2 = Mask_c(width, width, **kwargs)
+            self.mask_c2 = Mask_c(width, width, DPACS=DPACS, **kwargs)
         # conv 3 
         self.conv3 = conv1x1(width, planes * self.expansion)
         self.bn3 = norm_layer(planes * self.expansion)
@@ -269,13 +269,11 @@ class ResDG(nn.Module):
             tiles = [8, 4, 2, 1]
 
         # residual blocks
-        self.layer1, h, w = self._make_layer(block, 64, layers[0], h, w, tiles[0], channel_stage=channels_prune[0], **kwargs)
-        self.layer2, h, w = self._make_layer(block, 128, layers[1], h, w, tiles[1], stride=2, channel_stage=channels_prune[1],
-                                       dilate=replace_stride_with_dilation[0], **kwargs)
-        self.layer3, h, w = self._make_layer(block, 256, layers[2], h, w, tiles[2], stride=2, channel_stage=channels_prune[2],
-                                       dilate=replace_stride_with_dilation[1], **kwargs)
-        self.layer4, h, w = self._make_layer(block, 512, layers[3], h, w, tiles[3], stride=2, channel_stage=channels_prune[3],
-                                       dilate=replace_stride_with_dilation[2], **kwargs)
+        self.layer1, h, w = self._make_layer(block, 64, layers[0], h, w, tiles[0], channel_stage=channels_prune[0],
+                                             DPACS=DPACS, **kwargs)
+        self.layer2, h, w = self._make_layer(block, 128, layers[1], h, w, tiles[1], stride=2, channel_stage=channels_prune[1], DPACS=DPACS, dilate=replace_stride_with_dilation[0], **kwargs)
+        self.layer3, h, w = self._make_layer(block, 256, layers[2], h, w, tiles[2], stride=2, channel_stage=channels_prune[2], DPACS=DPACS, dilate=replace_stride_with_dilation[1], **kwargs)
+        self.layer4, h, w = self._make_layer(block, 512, layers[3], h, w, tiles[3], stride=2, channel_stage=channels_prune[3], DPACS=DPACS, dilate=replace_stride_with_dilation[2], **kwargs)
         # fc layer
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
