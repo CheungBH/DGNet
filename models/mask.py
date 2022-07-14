@@ -127,9 +127,12 @@ class Mask_c(nn.Module):
         # Norm
         self.norm = lambda x: torch.norm(x, p=1, dim=(1, 2, 3))
 
-    def forward(self, x):
+    def forward(self, x, meta=None):
         batch, channel, _, _ = x.size()
-        context = self.avg_pool(x)  # [N, C, 1, 1]
+        if self.DPACS:
+            context = self.avg_pool(x, meta["saliency_mask"])
+        else:
+            context = self.avg_pool(x)  # [N, C, 1, 1]
         # transform
         c_in = self.atten_c(context)  # [N, C_out, 1, 1]
         if self.DPACS:

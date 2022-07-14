@@ -159,7 +159,7 @@ class Bottleneck(nn.Module):
             self.flops_mask = torch.Tensor([flops_mask_s])
 
     def forward(self, input):
-        x, norm_1, norm_2, flops = input
+        x, norm_1, norm_2, flops, meta = input
         identity = x
         # spatial mask
         mask_s_m, norm_s, norm_s_t = self.mask_s(x)# [N, 1, h, w]
@@ -198,6 +198,7 @@ class Bottleneck(nn.Module):
         # identity
         if self.downsample is not None:
             identity = self.downsample(x)
+        meta["saliency_mask"] = out
         out += identity
         out = self.relu(out)
         # norm
@@ -207,7 +208,7 @@ class Bottleneck(nn.Module):
         # flops
         flops_blk = self.get_flops(mask_s, mask_s1, mask_c1, mask_c2)
         flops = torch.cat((flops, flops_blk.unsqueeze(0)))
-        return (out, norm_1, norm_2, flops)
+        return (out, norm_1, norm_2, flops, meta)
     
     def get_flops(self, mask_s, mask_s1, mask_c1, mask_c2):
         s_sum = mask_s.sum((1,2,3))
@@ -327,14 +328,18 @@ class ResDG(nn.Module):
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
+        meta = {"saliency_mask": x, "stage_id": 0}
         # residual modules
         norm1 = torch.zeros(1, batch_num+1).to(x.device)
         norm2 = torch.zeros(1, batch_num+1).to(x.device)
         flops = torch.zeros(1, batch_num+2).to(x.device)
-        x = self.layer1((x, norm1, norm2, flops))
+        x = self.layer1((x, norm1, norm2, flops, meta))
+        meta["stage_id"] += 1
         x = self.layer2(x)
+        meta["stage_id"] += 1
         x = self.layer3(x)
-        x, norm1, norm2, flops = self.layer4(x)
+        meta["stage_id"] += 1
+        x, norm1, norm2, flops, meta = self.layer4(x)
         # fc layer
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
