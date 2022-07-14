@@ -92,11 +92,11 @@ class InvertedResidual(nn.Module):
                 self.mask_c = Mask_c(inp, hidden_dim, DPACS=DPACS, **kwargs)
             flops_mkc = self.mask_c.get_flops()
             # spatial mask
-            if self.DPACS:
+            if not self.DPACS:
                 self.mask_s = Mask_s(self.height, self.width, inp, eta, eta, DPACS=DPACS, **kwargs)
                 self.upsample = nn.Upsample(size=(h, w), mode='nearest')
             else:
-                self.mask_s = Mask_s(int(stride * self.height_2), int(stride * self.width_2), inp, eta, eta,
+                self.mask_s = Mask_s(int(stride * self.height), int(stride * self.width), inp, eta, eta,
                                      DPACS=DPACS, **kwargs)
                 self.pooling = nn.MaxPool2d(kernel_size=stride)
             flops_mks = self.mask_s.get_flops()
@@ -131,13 +131,13 @@ class InvertedResidual(nn.Module):
             return (x, norm_1, norm_2, flops)
         else:
             x_in, norm_1, norm_2, flops = input
-            # channel mask
-            if self.DPACS:
-                mask_c, norm_c, norm_c_t = self.mask_c(x_in) # [N, C_out, 1, 1]
-            # spatial mask
+
             mask_s_m, norm_s, norm_s_t = self.mask_s(x_in) # [N, 1, h, w]
-            mask_s1 = self.upsample1(mask_s_m) # [N, 1, H1, W1]
-            mask_s = self.upsample(mask_s_m) # [N, 1, H, W]
+            # channel mask
+            if not self.DPACS:
+                mask_c, norm_c, norm_c_t = self.mask_c(x_in) # [N, C_out, 1, 1]
+                mask_s1 = self.upsample1(mask_s_m) # [N, 1, H1, W1]
+                mask_s = self.upsample(mask_s_m) # [N, 1, H, W]
             x = self.conv((x_in, mask_c, mask_s1, mask_s))            
             x = x * mask_s
             # norm
