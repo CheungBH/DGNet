@@ -119,9 +119,13 @@ class Bottleneck(nn.Module):
         self.height_1, self.width_1 = h, w
         self.height_2 = conv2d_out_dim(h, 3, dilation, stride, dilation)
         self.width_2 = conv2d_out_dim(w, 3, dilation, stride, dilation)
-        self.mask_s = Mask_s(self.height_2, self.width_2, inplanes, eta, eta, DPACS=DPACS, **kwargs)
-        self.upsample_1 = nn.Upsample(size=(self.height_1, self.width_1), mode='nearest')
-        self.upsample_2 = nn.Upsample(size=(self.height_2, self.width_2), mode='nearest')
+        if self.DPACS:
+            self.mask_s = Mask_s(self.height_2, self.width_2, inplanes, eta, eta, DPACS=DPACS, **kwargs)
+            self.pooling = nn.MaxPool2d(kernel_size=2)
+        else:
+            self.mask_s = Mask_s(self.height_2, self.width_2, inplanes, eta, eta, DPACS=DPACS, **kwargs)
+            self.upsample_1 = nn.Upsample(size=(self.height_1, self.width_1), mode='nearest')
+            self.upsample_2 = nn.Upsample(size=(self.height_2, self.width_2), mode='nearest')
         # conv 1
         self.conv1 = conv1x1(inplanes, width)
         self.bn1 = norm_layer(width)
@@ -162,14 +166,20 @@ class Bottleneck(nn.Module):
         x, norm_1, norm_2, flops, meta = input
         identity = x
         # spatial mask
-        mask_s_m, norm_s, norm_s_t = self.mask_s(x)# [N, 1, h, w]
+
         norm_c1_t, norm_c2_t = torch.ones(1).cuda() * self.conv2.in_channels, \
                                torch.ones(1).cuda() * self.conv2.out_channels
         norm_c1, norm_c2 = norm_c1_t.repeat(x.shape[0]), norm_c2_t.repeat(x.shape[0])
         mask_c1, mask_c2 = torch.ones(x.shape[0], self.conv2.in_channels, 1, 1).cuda(), \
                            torch.ones(x.shape[0], self.conv2.out_channels, 1, 1).cuda(),
-        mask_s1 = self.upsample_1(mask_s_m) # [N, 1, H1, W1]
-        mask_s = self.upsample_2(mask_s_m) # [N, 1, H2, W2]
+        if self.DPACS:
+            mask_s_m, norm_s, norm_s_t = self.mask_s(x)  # [N, 1, h, w]
+            mask_s1 = mask_s_m
+            mask_s = self.pooling(mask_s1)
+        else:
+            mask_s_m, norm_s, norm_s_t = self.mask_s(x)# [N, 1, h, w]
+            mask_s1 = self.upsample_1(mask_s_m) # [N, 1, H1, W1]
+            mask_s = self.upsample_2(mask_s_m) # [N, 1, H2, W2]
         if self.channel_stage:
             mask_c1, norm_c1, norm_c1_t = self.mask_c1(x, meta) if self.DPACS else self.mask_c1(x)
         # conv 1
