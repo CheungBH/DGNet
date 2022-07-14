@@ -96,39 +96,56 @@ class Mask_c(nn.Module):
     '''
         Attention Mask.
     '''
-    def __init__(self, inplanes, outplanes, fc_reduction=4, eps=0.66667, bias=-1, **kwargs):
+
+    def __init__(self, inplanes, outplanes, fc_reduction=4, eps=0.66667, bias=-1, DPACS=False, **kwargs):
         super(Mask_c, self).__init__()
         # Parameter
-        self.bottleneck = inplanes // fc_reduction 
+        self.bottleneck = inplanes // fc_reduction
         self.inplanes, self.outplanes = inplanes, outplanes
         self.eleNum_c = torch.Tensor([outplanes])
+        self.DPACS = DPACS
         # channel attention
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.atten_c = nn.Sequential(
-            nn.Conv2d(inplanes, self.bottleneck, kernel_size=1, stride=1, bias=False),
-            nn.BatchNorm2d(self.bottleneck),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(self.bottleneck, outplanes, kernel_size=1, stride=1, bias=bias>=0),
-        )
-        if bias>=0:
-            nn.init.constant_(self.atten_c[3].bias, bias)
+        if not DPACS:
+            self.avg_pool = nn.AdaptiveAvgPool2d(1)
+            self.atten_c = nn.Sequential(
+                nn.Conv2d(inplanes, self.bottleneck, kernel_size=1, stride=1, bias=False),
+                nn.BatchNorm2d(self.bottleneck),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(self.bottleneck, outplanes, kernel_size=1, stride=1, bias=bias >= 0),
+            )
+            if bias >= 0:
+                nn.init.constant_(self.atten_c[3].bias, bias)
+        else:
+            self.group_size = 64
+            self.avg_pool = MaskedAvePooling()
+            self.atten_c = nn.Sequential(
+                nn.Linear(inplanes, outplanes // self.group_size)
+            )
+
         # Gate
         self.gate_c = GumbelSoftmax(eps=eps)
         # Norm
-        self.norm = lambda x: torch.norm(x, p=1, dim=(1,2,3))
-    
+        self.norm = lambda x: torch.norm(x, p=1, dim=(1, 2, 3))
+
     def forward(self, x):
         batch, channel, _, _ = x.size()
-        context = self.avg_pool(x) # [N, C, 1, 1] 
+        context = self.avg_pool(x)  # [N, C, 1, 1]
         # transform
-        c_in = self.atten_c(context) # [N, C_out, 1, 1]
+        c_in = self.atten_c(context)  # [N, C_out, 1, 1]
+        if self.DPACS:
+            x = self.expand(x)
         # channel gate
-        mask_c = self.gate_c(c_in) # [N, C_out, 1, 1]
+        mask_c = self.gate_c(c_in)  # [N, C_out, 1, 1]
         # norm
         norm = self.norm(mask_c)
         norm_t = self.eleNum_c.to(x.device)
         return mask_c, norm, norm_t
-    
+
     def get_flops(self):
         flops = self.inplanes * self.bottleneck + self.bottleneck * self.outplanes
         return flops
+
+    def expand(self, x):
+        bs, vec_size = x.shape
+        return x.unsqueeze(dim=-1).expand(bs, vec_size, self.group_size).reshape(bs, vec_size*self.group_size)
+
