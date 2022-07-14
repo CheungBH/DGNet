@@ -171,7 +171,7 @@ class Bottleneck(nn.Module):
         mask_s1 = self.upsample_1(mask_s_m) # [N, 1, H1, W1]
         mask_s = self.upsample_2(mask_s_m) # [N, 1, H2, W2]
         if self.channel_stage:
-            mask_c1, norm_c1, norm_c1_t = self.mask_c1(x)
+            mask_c1, norm_c1, norm_c1_t = self.mask_c1(x, meta) if self.DPACS else self.mask_c1(x)
         # conv 1
         out = self.conv1(x)
         out = self.bn1(out)

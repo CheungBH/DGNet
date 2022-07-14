@@ -131,13 +131,12 @@ class Mask_c(nn.Module):
         batch, channel, _, _ = x.size()
         if self.DPACS:
             context = self.avg_pool(x, meta["saliency_mask"])
+            c_in = self.atten_c(context.view(context.shape[0], -1))
+            c_in = self.expand(c_in).view(context.shape[0], -1, 1, 1)
         else:
             context = self.avg_pool(x)  # [N, C, 1, 1]
+            c_in = self.atten_c(context)
         # transform
-        c_in = self.atten_c(context)  # [N, C_out, 1, 1]
-        if self.DPACS:
-            x = self.expand(x)
-        # channel gate
         mask_c = self.gate_c(c_in)  # [N, C_out, 1, 1]
         # norm
         norm = self.norm(mask_c)
