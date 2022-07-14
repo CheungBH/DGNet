@@ -165,6 +165,8 @@ class Bottleneck(nn.Module):
         mask_s_m, norm_s, norm_s_t = self.mask_s(x)# [N, 1, h, w]
         norm_c1_t, norm_c2_t = torch.ones(1) * self.conv2.in_channels, torch.ones(1) * self.conv2.out_channels
         norm_c1, norm_c2 = norm_c1_t.repeat(x.shape[0]), norm_c2_t.repeat(x.shape[0])
+        mask_c1, mask_c2 = torch.ones(x.shape[0], self.conv2.in_channels, 1, 1), \
+                           torch.ones(x.shape[0], self.conv2.out_channels, 1, 1),
         mask_s1 = self.upsample_1(mask_s_m) # [N, 1, H1, W1]
         mask_s = self.upsample_2(mask_s_m) # [N, 1, H2, W2]
         if self.channel_stage:
@@ -227,7 +229,7 @@ class ResDG(nn.Module):
 
     def __init__(self, block, layers, h=224, w=224, num_classes=1000,
                  zero_init_residual=False, groups=1, width_per_group=64,
-                 replace_stride_with_dilation=None, norm_layer=None, DPACS=False, **kwargs):
+                 replace_stride_with_dilation=None, norm_layer=None, DPACS=True, **kwargs):
         super(ResDG, self).__init__()
         # block
         self.height, self.width = h, w
