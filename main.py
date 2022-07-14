@@ -49,9 +49,7 @@ def main():
     # define loss function (criterion) and optimizer
     criterion = Loss()
     model.set_criterion(criterion)
-    # Data loader
-    trainloader, testloader = getDataLoader(args.data, args.dataset, args.batch_size,
-                                            args.workers)
+
     # to cuda
     if torch.cuda.is_available() and args.gpu_id != -1:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
@@ -78,6 +76,10 @@ def main():
     # ready
     logging.info("=" * 89)
     # Evaluate
+
+    # Data loader
+    trainloader, testloader = getDataLoader(args.data, args.dataset, args.batch_size,
+                                            args.workers)
     if args.evaluate:
         logging.info('Evaluate model')
         top1, top5 = validate(testloader, model, criterion, 0, use_cuda, 
@@ -184,6 +186,7 @@ def train(train_loader, model, criterion, optimizer, epoch, use_cuda, param,
 
 def validate(val_loader, model, criterion, epoch, use_cuda, param, den_target, p=0):
     global log_dir
+    import tqdm
     lbda, gamma = param
     # switch to evaluate mode
     model.eval()
@@ -195,7 +198,7 @@ def validate(val_loader, model, criterion, epoch, use_cuda, param, den_target, p
     with torch.no_grad():
         end = time.time()
         bar = Bar('Processing', max=len(val_loader))
-        for batch_idx, (x, targets) in enumerate(val_loader):
+        for batch_idx, (x, targets) in tqdm.tqdm(enumerate(val_loader)):
             # measure data loading time
             data_time.update(time.time() - end)
             # get inputs

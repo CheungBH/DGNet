@@ -107,13 +107,14 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
     __constants__ = ['downsample']
-    def __init__(self, inplanes, planes, h, w, eta=8, stride=1,
-                 downsample=None, groups=1, base_width=64, dilation=1,
-                 norm_layer=None, **kwargs):
+    def __init__(self, inplanes, planes, h, w, eta=8, stride=1, downsample=None, groups=1, base_width=64,
+                 dilation=1,  norm_layer=None, channel_stage=True, DPACS=False, **kwargs):
         super(Bottleneck, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         width = int(planes * (base_width / 64.)) * groups
+        self.channel_stage = channel_stage
+        self.DPACS = DPACS
         # spatial gating module
         self.height_1, self.width_1 = h, w
         self.height_2 = conv2d_out_dim(h, 3, dilation, stride, dilation)
@@ -124,11 +125,13 @@ class Bottleneck(nn.Module):
         # conv 1
         self.conv1 = conv1x1(inplanes, width)
         self.bn1 = norm_layer(width)
-        self.mask_c1 = Mask_c(inplanes, width, **kwargs)
+        if channel_stage:
+            self.mask_c1 = Mask_c(inplanes, width, **kwargs)
         # conv 2
         self.conv2 = conv3x3(width, width, stride, groups, dilation)
         self.bn2 = norm_layer(width)
-        self.mask_c2 = Mask_c(width, width, **kwargs)
+        if channel_stage and DPACS:
+            self.mask_c2 = Mask_c(width, width, **kwargs)
         # conv 3 
         self.conv3 = conv1x1(width, planes * self.expansion)
         self.bn3 = norm_layer(planes * self.expansion)
@@ -153,21 +156,34 @@ class Bottleneck(nn.Module):
         x, norm_1, norm_2, flops = input
         identity = x
         # spatial mask
-        mask_s_m, norm_s, norm_s_t = self.mask_s(x) # [N, 1, h, w]
-        mask_c1, norm_c1, norm_c1_t = self.mask_c1(x)
+        mask_s_m, norm_s, norm_s_t = self.mask_s(x)# [N, 1, h, w]
+
         mask_s1 = self.upsample_1(mask_s_m) # [N, 1, H1, W1]
         mask_s = self.upsample_2(mask_s_m) # [N, 1, H2, W2]
+        if self.channel_stage:
+            mask_c1, norm_c1, norm_c1_t = self.mask_c1(x)
         # conv 1
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
-        out = out * mask_c1 * mask_s1 if not self.training else out * mask_c1
-        # conv 2
-        mask_c2, norm_c2, norm_c2_t = self.mask_c2(out)
+        if self.channel_stage:
+            out = out * mask_c1 * mask_s1 if not self.training else out * mask_c1
+            # conv 2
+            if not self.DPACS:
+                mask_c2, norm_c2, norm_c2_t = self.mask_c2(out)
+        else:
+            out = out * mask_s1 if not self.training else out
         out = self.conv2(out)
         out = self.bn2(out)
         out = self.relu(out)
-        out = out * mask_c2 * mask_s if not self.training else out * mask_c2
+        if self.channel_stage:
+            if self.DPACS:
+                out = out * mask_c1 * mask_s if not self.training else out * mask_c1
+            else:
+                out = out * mask_c2 * mask_s if not self.training else out * mask_c2
+        else:
+            out = out * mask_s if not self.training else out
+
         # conv 3
         out = self.conv3(out)
         out = self.bn3(out)
@@ -203,7 +219,7 @@ class ResDG(nn.Module):
 
     def __init__(self, block, layers, h=224, w=224, num_classes=1000,
                  zero_init_residual=False, groups=1, width_per_group=64,
-                 replace_stride_with_dilation=None, norm_layer=None, **kwargs):
+                 replace_stride_with_dilation=None, norm_layer=None, DPACS=False, **kwargs):
         super(ResDG, self).__init__()
         # block
         self.height, self.width = h, w
@@ -233,13 +249,21 @@ class ResDG(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         h = conv2d_out_dim(h, kernel_size=3, stride=2, padding=1)
         w = conv2d_out_dim(w, kernel_size=3, stride=2, padding=1)
+
+        if DPACS:
+            channels_prune = [False, False, True, True]
+            tiles = [1, 1, 1, 1]
+        else:
+            channels_prune = [True, True, True, True]
+            tiles = [8, 4, 2, 1]
+
         # residual blocks
-        self.layer1, h, w = self._make_layer(block, 64, layers[0], h, w, 8, **kwargs)
-        self.layer2, h, w = self._make_layer(block, 128, layers[1], h, w, 4, stride=2,
+        self.layer1, h, w = self._make_layer(block, 64, layers[0], h, w, tiles[0], channel_stage=channels_prune[0], **kwargs)
+        self.layer2, h, w = self._make_layer(block, 128, layers[1], h, w, tiles[1], stride=2, channel_stage=channels_prune[1],
                                        dilate=replace_stride_with_dilation[0], **kwargs)
-        self.layer3, h, w = self._make_layer(block, 256, layers[2], h, w, 2, stride=2,
+        self.layer3, h, w = self._make_layer(block, 256, layers[2], h, w, tiles[2], stride=2, channel_stage=channels_prune[2],
                                        dilate=replace_stride_with_dilation[1], **kwargs)
-        self.layer4, h, w = self._make_layer(block, 512, layers[3], h, w, 1, stride=2,
+        self.layer4, h, w = self._make_layer(block, 512, layers[3], h, w, tiles[3], stride=2, channel_stage=channels_prune[3],
                                        dilate=replace_stride_with_dilation[2], **kwargs)
         # fc layer
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -265,7 +289,7 @@ class ResDG(nn.Module):
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)
 
-    def _make_layer(self, block, planes, blocks, h, w, tile, stride=1, dilate=False, **kwargs):
+    def _make_layer(self, block, planes, blocks, h, w, tile, stride=1, dilate=False, channel_stage=True, DPACS=False, **kwargs):
         norm_layer, downsample, previous_dilation = self._norm_layer, None, self.dilation
         mask_s = torch.ones(blocks)
         if dilate:
@@ -277,14 +301,14 @@ class ResDG(nn.Module):
                 norm_layer(planes * block.expansion),
             )
         layers = []
-        layers.append(block(self.inplanes, planes, h, w, tile, stride, downsample,
-                            self.groups, self.base_width, previous_dilation, norm_layer, **kwargs))
+        layers.append(block(self.inplanes, planes, h, w, tile, stride, downsample, self.groups, self.base_width,
+                            previous_dilation, norm_layer, channel_stage=channel_stage, DPACS=DPACS, **kwargs))
         h = conv2d_out_dim(h, kernel_size=1, stride=stride, padding=0)
         w = conv2d_out_dim(w, kernel_size=1, stride=stride, padding=0)
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
             layers.append(block(self.inplanes, planes, h, w, tile, groups=self.groups, 
-                                base_width=self.base_width, dilation=self.dilation,
+                                base_width=self.base_width, dilation=self.dilation, channel_stage=channel_stage, DPACS=DPACS,
                                 norm_layer=norm_layer,**kwargs))
         return nn.Sequential(*layers), h, w
 

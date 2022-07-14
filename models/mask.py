@@ -5,6 +5,21 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 
+class MaskedAvePooling(nn.Module):
+    def __init__(self, size=1):
+        super(MaskedAvePooling, self).__init__()
+        self.pooling = nn.AdaptiveAvgPool2d(size)
+
+    def forward(self, x, mask):
+        if mask is None:
+            return self.pooling(x)
+        pooled_feat = self.pooling(x * mask.expand_as(x))
+        total_pixel_num = mask.shape[-1] * mask.shape[-2]
+        active_pixel_num = mask.view(x.shape[0], -1).sum(dim=1)
+        active_mask = active_pixel_num.unsqueeze(dim=1).unsqueeze(dim=1).unsqueeze(dim=1).expand_as(pooled_feat) + 1e-4
+        return (pooled_feat * total_pixel_num)/active_mask
+
+
 class GumbelSoftmax(nn.Module):
     '''
         gumbel softmax gate.
@@ -40,15 +55,18 @@ class Mask_s(nn.Module):
     '''
         Attention Mask spatial.
     '''
-    def __init__(self, h, w, planes, block_w, block_h, eps=0.66667,
-                 bias=-1, **kwargs):
+    def __init__(self, h, w, planes, block_w, block_h, eps=0.66667, bias=-1, DPACS=False, **kwargs):
         super(Mask_s, self).__init__()
         # Parameter
         self.width, self.height, self.channel = w, h, planes
         self.mask_h, self.mask_w = int(np.ceil(h / block_h)), int(np.ceil(w / block_w))
         self.eleNum_s = torch.Tensor([self.mask_h*self.mask_w])
         # spatial attention
-        self.atten_s = nn.Conv2d(planes, 1, kernel_size=3, stride=1, bias=bias>=0, padding=1)
+        if DPACS:
+            self.atten_s = nn.Conv2d(planes, 1, kernel_size=1, stride=1, bias=bias>=0, padding=1)
+        else:
+            self.atten_s = nn.Conv2d(planes, 1, kernel_size=3, stride=1, bias=bias>=0, padding=1)
+
         if bias>=0:
             nn.init.constant_(self.atten_s.bias, bias)
         # Gate
