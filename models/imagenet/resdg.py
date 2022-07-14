@@ -150,7 +150,7 @@ class Bottleneck(nn.Module):
         flops_mask_s = self.mask_s.get_flops()
         if channel_stage:
             flops_mask_c1 = self.mask_c1.get_flops()
-            if DPACS:
+            if not DPACS:
                 flops_mask_c2 = self.mask_c2.get_flops()
                 self.flops_mask = torch.Tensor([flops_mask_s + flops_mask_c1 + flops_mask_c2])
             else:
