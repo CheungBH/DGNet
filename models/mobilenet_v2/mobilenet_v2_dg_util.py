@@ -35,6 +35,26 @@ class ConvBNReLU_1st(nn.Sequential):
         return x, norm_1, norm_2, flops, meta
 
 
+class Sequential_CG(nn.Sequential):
+    def __init__(self, layers, DPACS):
+        super(Sequential_CG, self).__init__(*layers)
+        self._module_num = len(layers)
+        self.DPACS = DPACS
+
+    def forward(self, input):
+        x, mask_c = input
+        i = 0
+        for module in self._modules.values():
+            if self.DPACS:
+                if i == self._module_num - 2 or i == self._module_num - 3:
+                    x = x * mask_c
+            else:
+                if i == self._module_num-2:
+                    x = x * mask_c
+            x = module(x)
+            i += 1
+        return x
+
 class Sequential_DG(nn.Sequential):
     def __init__(self, layers, DPACS):
         super(Sequential_DG, self).__init__(*layers)
@@ -110,10 +130,16 @@ class InvertedResidual(nn.Module):
                 self.pooling = nn.MaxPool2d(kernel_size=stride)
             flops_mks = self.mask_s.get_flops()
         else:
-            self.conv = nn.Sequential(*layers)
-            flops_mkc, flops_mks = 0, 0
-            self.norm_c_t = torch.Tensor([hidden_dim])
-            self.norm_s_t = torch.Tensor([self.spatial])
+            if self.DPACS and self.channel_stage:
+                self.conv = Sequential_CG(layers, DPACS=DPACS)
+                # channel mask
+                self.mask_c = Mask_c(inp, hidden_dim, DPACS=DPACS, **kwargs)
+                flops_mkc = self.mask_c.get_flops()
+            else:
+                self.conv = nn.Sequential(*layers)
+                flops_mkc, flops_mks = 0, 0
+                self.norm_c_t = torch.Tensor([hidden_dim])
+                self.norm_s_t = torch.Tensor([self.spatial])
         # misc
         self.inp, self.oup = inp, oup
         self.hidden_dim = hidden_dim
@@ -129,17 +155,30 @@ class InvertedResidual(nn.Module):
 
     def forward(self, input):
         if not self.use_res_connect:
-            x, norm_1, norm_2, flops, meta = input
-            x = self.conv(x)
-            norm_s = torch.ones((x.shape[0], self.spatial), device=x.device).sum(1)
-            norm_c = torch.ones((x.shape[0], self.hidden_dim), device=x.device).sum(1)
-            norm_1 = torch.cat((norm_1, torch.cat((norm_s, self.norm_s_t.to(x.device))).unsqueeze(0)))
-            norm_2 = torch.cat((norm_2, torch.cat((norm_c, self.norm_c_t.to(x.device))).unsqueeze(0)))
-            flops_blk = torch.cat((torch.ones(x.shape[0])*self.flops_full, self.flops_mask, self.flops_full)).to(flops.device)
-            flops = torch.cat((flops, flops_blk.unsqueeze(0)))
-            meta["stage_id"] += 1
-            meta["saliency_mask"] = x
-            return (x, norm_1, norm_2, flops, meta)
+            if self.DPACS and self.channel_stage:
+                x_in, norm_1, norm_2, flops, meta = input
+                # channel mask
+                mask_c, norm_c, norm_c_t = self.mask_c(x_in)  # [N, C_out, 1, 1]
+                x = self.conv((x_in, mask_c))
+                # norm
+                norm_1 = torch.cat((norm_1, torch.cat((norm_s, norm_s_t)).unsqueeze(0)))
+                norm_2 = torch.cat((norm_2, torch.cat((norm_c, norm_c_t)).unsqueeze(0)))
+                # flops
+                flops_blk = self.get_flops(mask_c, mask_s)
+                flops = torch.cat((flops, flops_blk.unsqueeze(0)))
+                meta["stage_id"] += 1
+            else:
+                x, norm_1, norm_2, flops, meta = input
+                x = self.conv(x)
+                norm_s = torch.ones((x.shape[0], self.spatial), device=x.device).sum(1)
+                norm_c = torch.ones((x.shape[0], self.hidden_dim), device=x.device).sum(1)
+                norm_1 = torch.cat((norm_1, torch.cat((norm_s, self.norm_s_t.to(x.device))).unsqueeze(0)))
+                norm_2 = torch.cat((norm_2, torch.cat((norm_c, self.norm_c_t.to(x.device))).unsqueeze(0)))
+                flops_blk = torch.cat((torch.ones(x.shape[0])*self.flops_full, self.flops_mask, self.flops_full)).to(flops.device)
+                flops = torch.cat((flops, flops_blk.unsqueeze(0)))
+                meta["stage_id"] += 1
+                meta["saliency_mask"] = x
+                return (x, norm_1, norm_2, flops, meta)
         else:
             x_in, norm_1, norm_2, flops, meta = input
             mask_c, norm_c_t, = torch.ones(x_in.shape[0], self.hidden_dim, 1, 1).cuda(), \
