@@ -36,21 +36,29 @@ class ConvBNReLU_1st(nn.Sequential):
 
 
 class Sequential_DG(nn.Sequential):
-    def __init__(self, layers):
+    def __init__(self, layers, DPACS):
         super(Sequential_DG, self).__init__(*layers)
         self._module_num = len(layers)
+        self.DPACS = DPACS
 
     def forward(self, input):
         x, mask_c, mask_s1, mask_s2 = input
         i = 0
         for module in self._modules.values():
             if self.training:
-                if i == self._module_num-2:
-                    x = x * mask_c
+                if self.DPACS:
+                    if i == self._module_num - 2 or i == self._module_num - 3:
+                        x = x * mask_c
+                else:
+                    if i == self._module_num-2:
+                        x = x * mask_c
                 x = module(x)
             else:
                 if i == 0:
-                    x = module(x) * mask_s1                
+                    if self.DPACS:
+                        x = module(x) * mask_s1 * mask_c
+                    else:
+                        x = module(x) * mask_s1
                 elif i == self._module_num-2:
                     x = x * mask_c * mask_s2
                     x = module(x)
@@ -74,6 +82,7 @@ class InvertedResidual(nn.Module):
         self.expand = expand_ratio == 1
         hidden_dim = int(round(inp * expand_ratio))
         self.use_res_connect = self.stride == 1 and inp == oup
+        self.channel_stage = channel_stage
 
         layers = []
         if expand_ratio != 1:
@@ -86,7 +95,7 @@ class InvertedResidual(nn.Module):
             nn.BatchNorm2d(oup),
         ])
         if self.use_res_connect:
-            self.conv = Sequential_DG(layers)
+            self.conv = Sequential_DG(layers, DPACS=DPACS)
             # channel mask
             if channel_stage:
                 self.mask_c = Mask_c(inp, hidden_dim, DPACS=DPACS, **kwargs)
@@ -129,6 +138,7 @@ class InvertedResidual(nn.Module):
             flops_blk = torch.cat((torch.ones(x.shape[0])*self.flops_full, self.flops_mask, self.flops_full)).to(flops.device)
             flops = torch.cat((flops, flops_blk.unsqueeze(0)))
             meta["stage_id"] += 1
+            meta["saliency_mask"] = x
             return (x, norm_1, norm_2, flops, meta)
         else:
             x_in, norm_1, norm_2, flops, meta = input
@@ -139,6 +149,10 @@ class InvertedResidual(nn.Module):
                 mask_c, norm_c, norm_c_t = self.mask_c(x_in) # [N, C_out, 1, 1]
                 mask_s1 = self.upsample1(mask_s_m) # [N, 1, H1, W1]
                 mask_s = self.upsample(mask_s_m) # [N, 1, H, W]
+            else:
+                if self.channel_stage:
+                    mask_c, norm_c, norm_c_t = self.mask_c(x_in)  # [N, C_out, 1, 1]
+                mask_s, mask_s1 = mask_s_m, mask_s_m
             x = self.conv((x_in, mask_c, mask_s1, mask_s))            
             x = x * mask_s
             # norm
