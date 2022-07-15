@@ -142,7 +142,9 @@ class InvertedResidual(nn.Module):
             return (x, norm_1, norm_2, flops, meta)
         else:
             x_in, norm_1, norm_2, flops, meta = input
-
+            mask_c, norm_c_t, = torch.ones(x_in.shape[0], self.hidden_dim, 1, 1).cuda(), \
+                                torch.ones(1).cuda() * self.hidden_dim
+            norm_c = norm_c_t.repeat(x_in.shape[0])
             mask_s_m, norm_s, norm_s_t = self.mask_s(x_in) # [N, 1, h, w]
             # channel mask
             if not self.DPACS:
