@@ -160,7 +160,7 @@ class InvertedResidual(nn.Module):
             if self.DPACS and self.channel_stage:
                 x_in, norm_1, norm_2, flops, meta = input
                 # channel mask
-                mask_c, norm_c, norm_c_t = self.mask_c(x_in)  # [N, C_out, 1, 1]
+                mask_c, norm_c, norm_c_t = self.mask_c(x_in) if not self.DPACS else self.mask_c(x_in, meta)  # [N, C_out, 1, 1]
                 x = self.conv((x_in, mask_c))
                 mask_s, norm_s_t = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3]).cuda(), \
                                    torch.ones(1).cuda() * self.spatial
@@ -199,7 +199,8 @@ class InvertedResidual(nn.Module):
                 mask_s1 = self.upsample1(mask_s_m) # [N, 1, H1, W1]
                 mask_s = self.upsample(mask_s_m) # [N, 1, H, W]
             else:
-                mask_c, norm_c, norm_c_t = self.mask_c(x_in)  # [N, C_out, 1, 1]
+                if self.channel_stage:
+                    mask_c, norm_c, norm_c_t = self.mask_c(x_in) if not self.DPACS else self.mask_c(x_in, meta)
                 mask_s, mask_s1 = mask_s_m, mask_s_m
             x = self.conv((x_in, mask_c, mask_s1, mask_s))            
             x = x * mask_s
