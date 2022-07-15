@@ -37,7 +37,7 @@ def _make_divisible(v, divisor, min_value=None):
 
 
 class MobileNetV2(nn.Module):
-    def __init__(self, num_classes=1000, width_mult=1.0, inverted_residual_setting=None, DPACS=False,
+    def __init__(self, num_classes=1000, width_mult=1.0, inverted_residual_setting=None, DPACS=True,
                  round_nearest=8, in_size=(224, 224), block = InvertedResidual, **kwargs):
         """
         MobileNet V2 main class
@@ -95,7 +95,7 @@ class MobileNetV2(nn.Module):
             output_channel = _make_divisible(c * width_mult, round_nearest)
             for i in range(n):
                 stride = s if i == 0 else 1
-                features.append(block(input_channel, output_channel, stride, channel_stage=channel_stage,
+                features.append(block(input_channel, output_channel, stride, channel_stage=channel_stage, DPACS=DPACS,
                                       expand_ratio=t, h=h, w=w, eta=tile, stage_idx=stage_idx, **kwargs))
                 stage_idx += 1
                 if stage_idx >= 6:

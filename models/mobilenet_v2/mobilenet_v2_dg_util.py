@@ -132,13 +132,14 @@ class InvertedResidual(nn.Module):
                 self.pooling = nn.MaxPool2d(kernel_size=stride)
             flops_mks = self.mask_s.get_flops()
         else:
+            flops_mks = 0
             if self.DPACS and self.channel_stage:
                 self.conv = Sequential_CG(layers, DPACS=DPACS)
                 self.mask_c = Mask_c(inp, hidden_dim, DPACS=DPACS, **kwargs)
                 flops_mkc = self.mask_c.get_flops()
             else:
                 self.conv = nn.Sequential(*layers)
-                flops_mkc, flops_mks = 0, 0
+                flops_mkc = 0
                 self.norm_c_t = torch.Tensor([hidden_dim])
                 self.norm_s_t = torch.Tensor([self.spatial])
         # misc
