@@ -46,8 +46,9 @@ def main():
     logging.info("=> creating model '{}'".format(args.arch))
     model = models.get_model(pretrained=args.pretrained, dataset = args.dataset,
                              arch = args.arch, bias=args.bias)
-    inputs = {"x": torch.rand((2, 3, 224, 224)), "label": None, "den_target": args.den_target, "lbda": args.lbda,
+    inputs = {"x": torch.rand((2, 3, 224, 224)).cuda(), "label": None, "den_target": args.den_target, "lbda": args.lbda,
               "gamma":  args.gamma, "p": None}
+    model.cuda()
     _ = model(**inputs)
 
     # define loss function (criterion) and optimizer

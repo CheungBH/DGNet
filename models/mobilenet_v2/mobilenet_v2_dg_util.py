@@ -119,7 +119,9 @@ class InvertedResidual(nn.Module):
             # channel mask
             if channel_stage:
                 self.mask_c = Mask_c(inp, hidden_dim, DPACS=DPACS, **kwargs)
-            flops_mkc = self.mask_c.get_flops()
+                flops_mkc = self.mask_c.get_flops()
+            else:
+                flops_mkc = 0
             # spatial mask
             if not self.DPACS:
                 self.mask_s = Mask_s(self.height, self.width, inp, eta, eta, DPACS=DPACS, **kwargs)
@@ -132,7 +134,6 @@ class InvertedResidual(nn.Module):
         else:
             if self.DPACS and self.channel_stage:
                 self.conv = Sequential_CG(layers, DPACS=DPACS)
-                # channel mask
                 self.mask_c = Mask_c(inp, hidden_dim, DPACS=DPACS, **kwargs)
                 flops_mkc = self.mask_c.get_flops()
             else:
@@ -192,12 +193,12 @@ class InvertedResidual(nn.Module):
             mask_s_m, norm_s, norm_s_t = self.mask_s(x_in) # [N, 1, h, w]
             # channel mask
             if not self.DPACS:
-                mask_c, norm_c, norm_c_t = self.mask_c(x_in) # [N, C_out, 1, 1]
+                if self.channel_stage:
+                    mask_c, norm_c, norm_c_t = self.mask_c(x_in) # [N, C_out, 1, 1]
                 mask_s1 = self.upsample1(mask_s_m) # [N, 1, H1, W1]
                 mask_s = self.upsample(mask_s_m) # [N, 1, H, W]
             else:
-                if self.channel_stage:
-                    mask_c, norm_c, norm_c_t = self.mask_c(x_in)  # [N, C_out, 1, 1]
+                mask_c, norm_c, norm_c_t = self.mask_c(x_in)  # [N, C_out, 1, 1]
                 mask_s, mask_s1 = mask_s_m, mask_s_m
             x = self.conv((x_in, mask_c, mask_s1, mask_s))            
             x = x * mask_s
