@@ -160,6 +160,9 @@ class InvertedResidual(nn.Module):
                 # channel mask
                 mask_c, norm_c, norm_c_t = self.mask_c(x_in)  # [N, C_out, 1, 1]
                 x = self.conv((x_in, mask_c))
+                mask_s, norm_s_t = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3]).cuda(), \
+                                   torch.ones(1).cuda() * self.spatial
+                norm_s = norm_s_t.repeat(x_in.shape[0])
                 # norm
                 norm_1 = torch.cat((norm_1, torch.cat((norm_s, norm_s_t)).unsqueeze(0)))
                 norm_2 = torch.cat((norm_2, torch.cat((norm_c, norm_c_t)).unsqueeze(0)))
@@ -167,6 +170,8 @@ class InvertedResidual(nn.Module):
                 flops_blk = self.get_flops(mask_c, mask_s)
                 flops = torch.cat((flops, flops_blk.unsqueeze(0)))
                 meta["stage_id"] += 1
+                meta["saliency_mask"] = x
+                return (x, norm_1, norm_2, flops, meta)
             else:
                 x, norm_1, norm_2, flops, meta = input
                 x = self.conv(x)
@@ -181,8 +186,8 @@ class InvertedResidual(nn.Module):
                 return (x, norm_1, norm_2, flops, meta)
         else:
             x_in, norm_1, norm_2, flops, meta = input
-            mask_c, norm_c_t, = torch.ones(x_in.shape[0], self.hidden_dim, 1, 1).cuda(), \
-                                torch.ones(1).cuda() * self.hidden_dim
+            mask_c, norm_c_t = torch.ones(x_in.shape[0], self.hidden_dim, 1, 1).cuda(), \
+                               torch.ones(1).cuda() * self.hidden_dim
             norm_c = norm_c_t.repeat(x_in.shape[0])
             mask_s_m, norm_s, norm_s_t = self.mask_s(x_in) # [N, 1, h, w]
             # channel mask
@@ -203,6 +208,7 @@ class InvertedResidual(nn.Module):
             flops_blk = self.get_flops(mask_c, mask_s)
             flops = torch.cat((flops, flops_blk.unsqueeze(0)))
             meta["stage_id"] += 1
+            meta["saliency_mask"] = x
             return (x+x_in, norm_1, norm_2, flops, meta)
 
     def get_flops(self, mask_c, mask_s_up):
