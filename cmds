@@ -1,0 +1,6 @@
+-e -a resdg50 -dset imagenet -d /media/hkuit155/NewDisk/imagenet --checkpoint imagenet/resdg50-04-e --pretrained ./trained_models_cls/imagenet_results/resdg50/sparse06/resdg50_04.pth.tar --gpu-id 0
+
+-d /media/hkuit155/NewDisk/imagenet -dset imagenet -a resdg50 -lr 0.05 --weight-decay 4e-5 --epochs 200 --checkpoint imagenet_test/resdg50 --gpu-id 0 --den-target 0.4 --pretrained pytorch --lr-mode cosine --batch-size 16
+
+-e -a mobilenet_v2_dg -dset imagenet -d /media/hkuit155/NewDisk/imagenet --checkpoint imagenet/resdg50-04-e --pretrained ./trained_models_cls/imagenet_results/mbnet_v2/sparse05/mbnet_v2_05.pth.tar --gpu-id 0
+
