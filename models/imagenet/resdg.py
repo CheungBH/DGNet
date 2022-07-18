@@ -340,7 +340,7 @@ class ResDG(nn.Module):
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-        meta = {"saliency_mask": x, "stage_id": 0}
+        meta = {"saliency_mask": x, "stage_id": 0, "mask": []}
         # residual modules
         norm1 = torch.zeros(1, batch_num+1).to(x.device)
         norm2 = torch.zeros(1, batch_num+1).to(x.device)
