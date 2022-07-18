@@ -171,21 +171,20 @@ class InvertedResidual(nn.Module):
                 # flops
                 flops_blk = self.get_flops(mask_c, mask_s)
                 flops = torch.cat((flops, flops_blk.unsqueeze(0)))
-                meta["stage_id"] += 1
-                meta["saliency_mask"] = x
-                return (x, norm_1, norm_2, flops, meta)
             else:
                 x, norm_1, norm_2, flops, meta = input
                 x = self.conv(x)
                 norm_s = torch.ones((x.shape[0], self.spatial), device=x.device).sum(1)
                 norm_c = torch.ones((x.shape[0], self.hidden_dim), device=x.device).sum(1)
+                mask_s = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3]).cuda()
                 norm_1 = torch.cat((norm_1, torch.cat((norm_s, self.norm_s_t.to(x.device))).unsqueeze(0)))
                 norm_2 = torch.cat((norm_2, torch.cat((norm_c, self.norm_c_t.to(x.device))).unsqueeze(0)))
                 flops_blk = torch.cat((torch.ones(x.shape[0])*self.flops_full, self.flops_mask, self.flops_full)).to(flops.device)
                 flops = torch.cat((flops, flops_blk.unsqueeze(0)))
-                meta["stage_id"] += 1
-                meta["saliency_mask"] = x
-                return (x, norm_1, norm_2, flops, meta)
+            meta["stage_id"] += 1
+            meta["mask"].append(mask_s)
+            meta["saliency_mask"] = x
+            return (x, norm_1, norm_2, flops, meta)
         else:
             x_in, norm_1, norm_2, flops, meta = input
             mask_c, norm_c_t = torch.ones(x_in.shape[0], self.hidden_dim, 1, 1).cuda(), \
@@ -212,6 +211,7 @@ class InvertedResidual(nn.Module):
             flops = torch.cat((flops, flops_blk.unsqueeze(0)))
             meta["stage_id"] += 1
             meta["saliency_mask"] = x
+            meta["mask"].append(mask_s)
             return (x+x_in, norm_1, norm_2, flops, meta)
 
     def get_flops(self, mask_c, mask_s_up):

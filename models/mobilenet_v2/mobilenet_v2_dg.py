@@ -135,7 +135,7 @@ class MobileNetV2(nn.Module):
         norm1 = torch.zeros(1, batch_num+1).to(x.device)
         norm2 = torch.zeros(1, batch_num+1).to(x.device)
         flops = torch.zeros(1, batch_num+2).to(x.device)
-        meta = {"saliency_mask": x, "stage_id": 0}
+        meta = {"saliency_mask": x, "stage_id": 0, "mask": {}}
         x, norm1, norm2, flops, meta = self.features((x, norm1, norm2, flops, meta))
         x = x.mean([2, 3])
         x = self.classifier(x)

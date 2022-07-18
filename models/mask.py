@@ -130,7 +130,7 @@ class Mask_c(nn.Module):
     def forward(self, x, meta=None):
         batch, channel, _, _ = x.size()
         if self.DPACS:
-            context = self.avg_pool(x, meta["saliency_mask"])
+            context = self.avg_pool(meta["saliency_mask"], meta["mask"][-1])
             c_in = self.atten_c(context.view(context.shape[0], -1))
             c_in = self.expand(c_in).view(context.shape[0], -1, 1, 1)
         else:
