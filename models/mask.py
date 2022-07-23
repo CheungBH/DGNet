@@ -97,13 +97,15 @@ class Mask_c(nn.Module):
         Attention Mask.
     '''
 
-    def __init__(self, inplanes, outplanes, fc_reduction=4, eps=0.66667, bias=-1, DPACS=False, **kwargs):
+    def __init__(self, inplanes, outplanes, fc_reduction=4, eps=0.66667, bias=-1, DPACS=False, full_feature=False,
+                 **kwargs):
         super(Mask_c, self).__init__()
         # Parameter
         self.bottleneck = inplanes // fc_reduction
         self.inplanes, self.outplanes = inplanes, outplanes
         self.eleNum_c = torch.Tensor([outplanes])
         self.DPACS = DPACS
+        self.full_feature = full_feature
         # channel attention
         if not DPACS:
             self.avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -117,7 +119,7 @@ class Mask_c(nn.Module):
                 nn.init.constant_(self.atten_c[3].bias, bias)
         else:
             self.group_size = 64
-            self.avg_pool = MaskedAvePooling()
+            self.avg_pool = MaskedAvePooling() if not self.full_feature else nn.AdaptiveAvgPool2d(1)
             self.atten_c = nn.Sequential(
                 nn.Linear(inplanes, outplanes // self.group_size)
             )
@@ -130,7 +132,10 @@ class Mask_c(nn.Module):
     def forward(self, x, meta=None):
         batch, channel, _, _ = x.size()
         if self.DPACS:
-            context = self.avg_pool(meta["saliency_mask"], meta["mask"][-1])
+            if not self.full_feature:
+                context = self.avg_pool(meta["saliency_mask"], meta["mask"][-1])
+            else:
+                context = self.avg_pool(x)  # [N, C, 1, 1]
             c_in = self.atten_c(context.view(context.shape[0], -1))
             c_in = self.expand(c_in).view(context.shape[0], -1, 1, 1)
         else:
