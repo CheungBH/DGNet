@@ -49,9 +49,9 @@ def get_loggers(args):
     else:
         print("=> directory '{}' exists".format(log_dir))
 
-    train_log = Logger(os.path.join(log_dir, 'train.log'))
-    test_log = Logger(os.path.join(log_dir, 'test.log'))
-    config_log = Logger(os.path.join(log_dir, 'config.log'))
+    train_log = Logger(os.path.join(log_dir, 'train.log'), resume=True)
+    test_log = Logger(os.path.join(log_dir, 'test.log'), resume=True)
+    config_log = Logger(os.path.join(log_dir, 'config.log'), resume=True)
     if not os.path.isdir(os.path.join(log_dir, 'tb')):
         os.makedirs(os.path.join(log_dir, 'tb'))
 
@@ -60,7 +60,7 @@ def get_loggers(args):
     fmt = '%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s'
     logging.basicConfig(level=log_level,
                         filename=os.path.join(log_dir, 'message.log'),
-                        filemode='w',
+                        filemode='a+',
                         format=fmt)
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
