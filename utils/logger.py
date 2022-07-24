@@ -49,9 +49,9 @@ def get_loggers(args):
     else:
         print("=> directory '{}' exists".format(log_dir))
 
-    train_log = Logger(os.path.join(log_dir, 'train.log'), resume=True)
-    test_log = Logger(os.path.join(log_dir, 'test.log'), resume=True)
-    config_log = Logger(os.path.join(log_dir, 'config.log'), resume=True)
+    train_log = Logger(os.path.join(log_dir, 'train.log'))
+    test_log = Logger(os.path.join(log_dir, 'test.log'))
+    config_log = Logger(os.path.join(log_dir, 'config.log'))
     if not os.path.isdir(os.path.join(log_dir, 'tb')):
         os.makedirs(os.path.join(log_dir, 'tb'))
 
@@ -118,7 +118,7 @@ class Logger(object):
                 self.file.close()
                 self.file = open(fpath, 'a')
             else:
-                self.file = open(fpath, 'w')
+                self.file = open(fpath, 'a+')
 
     def set_names(self, names):
         if self.resume:
