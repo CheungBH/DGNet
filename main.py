@@ -58,10 +58,11 @@ def main():
     # to cuda
     if torch.cuda.is_available() and args.gpu_id != -1:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
-        model = torch.nn.DataParallel(model).cuda()
+        model.cuda()
         logging.info('=> running the model on gpu{}.'.format(args.gpu_id))
     else:
         logging.info('=> running the model on cpu.')
+
     # define optimizer
     param_dict = dict(model.named_parameters())
     params = []
@@ -95,6 +96,8 @@ def main():
         start_epoch = checkpoint["epoch"] - 1
         best_acc = checkpoint["best_acc"]
     # Data loader
+
+    model = torch.nn.DataParallel(model)
     trainloader, testloader = getDataLoader(args.data, args.dataset, args.batch_size,
                                             args.workers)
     if args.evaluate:
