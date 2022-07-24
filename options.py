@@ -37,3 +37,7 @@ parser.add_argument('--pretrained', default='', type=str, metavar='PATH',
 parser.add_argument('--checkpoint', default='', type=str, metavar='PATH',
                     help='path to store the checkpoint and log checkpoint path = ./checkpoints/PATH, log path = ./logs/PATH')
 parser.add_argument('--bias', default=2, type=float, help='initial value of the bias in the last fc layer of mask module.')
+
+parser.add_argument('--DPACS', action='store_true', help='evaluate model on validation set')
+parser.add_argument('--full_feature', action='store_true', help='evaluate model on validation set')
+parser.add_argument("-r", '--auto_resume', action='store_true', help='evaluate model on validation set')

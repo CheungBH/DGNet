@@ -44,8 +44,8 @@ def main():
     # create model
     logging.info("=" * 89)
     logging.info("=> creating model '{}'".format(args.arch))
-    model = models.get_model(pretrained=args.pretrained, dataset = args.dataset,
-                             arch = args.arch, bias=args.bias)
+    model = models.get_model(pretrained=args.pretrained, dataset=args.dataset, arch=args.arch, bias=args.bias,
+                             DPACS=args.DPACS, full_feature=args.full_feature)
     # inputs = {"x": torch.rand((2, 3, 224, 224)).cuda(), "label": None, "den_target": args.den_target, "lbda": args.lbda,
     #           "gamma":  args.gamma, "p": None}
     # model.cuda()
@@ -81,7 +81,19 @@ def main():
     # ready
     logging.info("=" * 89)
     # Evaluate
-
+    start_epoch = 0
+    if args.auto_resume:
+        checkpoint = torch.load(os.path.join(checkpoint_dir, "checkpoint.pth.tar"),
+                                map_location=lambda storage, loc: storage)
+        logging.info("=> loaded checkpoint (prec {:.2f})".format(checkpoint['best_acc']))
+        model_dict = model.state_dict()
+        pretrained_dict = checkpoint['state_dict']
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        start_epoch = checkpoint["epoch"] - 1
+        best_acc = checkpoint["best_acc"]
     # Data loader
     trainloader, testloader = getDataLoader(args.data, args.dataset, args.batch_size,
                                             args.workers)
@@ -94,7 +106,7 @@ def main():
     # training
     logging.info('\n Train for {} epochs'.format(args.epochs))
     train_process(model, args.epochs, testloader, trainloader, criterion, optimizer,
-                  use_cuda, args.lbda, args.gamma, p_anneal, checkpoint_dir, args.den_target)
+                  use_cuda, args.lbda, args.gamma, p_anneal, checkpoint_dir, args.den_target, start_epoch)
     train_log.close()
     test_log.close()
     logging.info('Best acc: {}'.format(best_acc))
@@ -102,9 +114,9 @@ def main():
 
 
 def train_process(model, total_epochs, testloader, trainloader, criterion, optimizer,
-                  use_cuda, lbda, gamma, p_anneal, checkpoint_dir, den_target):
+                  use_cuda, lbda, gamma, p_anneal, checkpoint_dir, den_target, start_epoch=0):
     global best_acc
-    for epoch in range(total_epochs):
+    for epoch in range(start_epoch, total_epochs):
         p = p_anneal.get_lr(epoch)
         # get target density
         state['den_target'] = den_target
