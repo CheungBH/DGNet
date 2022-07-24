@@ -39,5 +39,7 @@ parser.add_argument('--checkpoint', default='', type=str, metavar='PATH',
 parser.add_argument('--bias', default=2, type=float, help='initial value of the bias in the last fc layer of mask module.')
 
 parser.add_argument('--DPACS', action='store_true', help='evaluate model on validation set')
-parser.add_argument('--full_feature', action='store_true', help='evaluate model on validation set')
+parser.add_argument('--full_feature', action='store_true', help='Feed full feature to the channel unit')
 parser.add_argument("-r", '--auto_resume', action='store_true', help='evaluate model on validation set')
+parser.add_argument('--group_size', default=64, type=int, help='group size for channel unit')
+parser.add_argument('--dual_fc', action='store_true', help='Use multiple FCs in channel unit')
