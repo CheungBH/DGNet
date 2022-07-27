@@ -213,6 +213,7 @@ class Bottleneck(nn.Module):
         if self.downsample is not None:
             identity = self.downsample(x)
         meta["saliency_mask"] = out
+        meta["mask"].append(mask_s)
         out += identity
         out = self.relu(out)
         # norm
