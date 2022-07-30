@@ -63,8 +63,10 @@ class Mask_s(nn.Module):
         self.eleNum_s = torch.Tensor([self.mask_h*self.mask_w])
         # spatial attention
         if DPACS:
+            self.mask_kernel = 1
             self.atten_s = nn.Conv2d(planes, 1, kernel_size=1, stride=1, bias=bias>=0, padding=0)
         else:
+            self.mask_kernel = 3
             self.atten_s = nn.Conv2d(planes, 1, kernel_size=3, stride=1, bias=bias>=0, padding=1)
 
         if bias>=0:
@@ -88,7 +90,7 @@ class Mask_s(nn.Module):
         return mask_s, norm, norm_t
     
     def get_flops(self):
-        flops = self.mask_h * self.mask_w * self.channel * 9
+        flops = self.mask_h * self.mask_w * self.channel * self.mask_kernel * self.mask_kernel
         return flops
 
 
@@ -155,7 +157,10 @@ class Mask_c(nn.Module):
 
     def get_flops(self):
         if self.DPACS:
-            flops = self.inplanes * self.outplanes / self.group_size
+            if self.dual_fc:
+                flops = self.inplanes * self.bottleneck + self.bottleneck * self.outplanes / self.group_size
+            else:
+                flops = self.inplanes * self.outplanes / self.group_size
         else:
             flops = self.inplanes * self.bottleneck + self.bottleneck * self.outplanes
         return flops
