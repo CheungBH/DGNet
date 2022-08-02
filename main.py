@@ -79,7 +79,7 @@ def main():
             params += [{'params':[value]}]
     optimizer = torch.optim.SGD(params, lr=args.learning_rate,weight_decay=args.weight_decay,
                                 momentum=args.momentum, nesterov=True)
-    if args.scheduler == "step":
+    if args.lr_mode == "step":
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.schedule)
     else:
         raise NotImplementedError
