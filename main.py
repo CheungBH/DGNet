@@ -96,6 +96,17 @@ def main():
         optimizer.load_state_dict(checkpoint['optimizer'])
         start_epoch = checkpoint["epoch"] - 1
         best_acc = checkpoint["best_acc"]
+    elif args.resume:
+        checkpoint = torch.load(args.resume, map_location=lambda storage, loc: storage)
+        logging.info("=> loaded checkpoint (prec {:.2f})".format(checkpoint['best_acc']))
+        model_dict = model.state_dict()
+        pretrained_dict = checkpoint['state_dict']
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        start_epoch = checkpoint["epoch"] - 1
+        best_acc = checkpoint["best_acc"]
     # Data loader
 
     model = torch.nn.DataParallel(model)
