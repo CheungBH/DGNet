@@ -136,7 +136,8 @@ class Bottleneck(nn.Module):
         self.conv2 = conv3x3(width, width, stride, groups, dilation)
         self.bn2 = norm_layer(width)
         if channel_stage and not DPACS:
-            self.mask_c2 = Mask_c(width, width, DPACS=DPACS, **kwargs)
+            pass
+            #self.mask_c2 = Mask_c(width, width, DPACS=DPACS, **kwargs)
         # conv 3 
         self.conv3 = conv1x1(width, planes * self.expansion)
         self.bn3 = norm_layer(planes * self.expansion)
@@ -156,8 +157,7 @@ class Bottleneck(nn.Module):
         if channel_stage:
             flops_mask_c1 = self.mask_c1.get_flops()
             if not DPACS:
-                flops_mask_c2 = self.mask_c2.get_flops()
-                self.flops_mask = torch.Tensor([flops_mask_s + flops_mask_c1 + flops_mask_c2])
+                self.flops_mask = torch.Tensor([flops_mask_s + flops_mask_c1])
             else:
                 self.flops_mask = torch.Tensor([flops_mask_s + flops_mask_c1])
         else:
@@ -182,7 +182,7 @@ class Bottleneck(nn.Module):
             mask_s1 = self.upsample_1(mask_s_m) # [N, 1, H1, W1]
             mask_s = self.upsample_2(mask_s_m) # [N, 1, H2, W2]
         if self.channel_stage:
-            mask_c1, norm_c1, norm_c1_t = self.mask_c1(x, meta) if self.DPACS else self.mask_c1(x)
+            mask_c1, norm_c1, norm_c1_t = self.mask_c1(x, meta) #if self.DPACS else self.mask_c1(x)
         # conv 1
         out = self.conv1(x)
         out = self.bn1(out)
@@ -190,8 +190,8 @@ class Bottleneck(nn.Module):
         if self.channel_stage:
             out = out * mask_c1 * mask_s1 if not self.training else out * mask_c1
             # conv 2
-            if not self.DPACS:
-                mask_c2, norm_c2, norm_c2_t = self.mask_c2(out)
+            # if not self.DPACS:
+            #     mask_c2, norm_c2, norm_c2_t = self.mask_c2(out)
         else:
             out = out * mask_s1 if not self.training else out
         out = self.conv2(out)
@@ -277,7 +277,7 @@ class ResDG(nn.Module):
             channels_prune = [False, False, True, True]
             tiles = [1, 1, 1, 1]
         else:
-            channels_prune = [True, True, True, True]
+            channels_prune = [False, False, True, True]
             tiles = [8, 4, 2, 1]
 
         # residual blocks

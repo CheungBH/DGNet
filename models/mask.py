@@ -111,15 +111,15 @@ class Mask_c(nn.Module):
         self.dual_fc = dual_fc
         # channel attention
         if not DPACS:
-            self.avg_pool = nn.AdaptiveAvgPool2d(1)
-            self.atten_c = nn.Sequential(
-                nn.Conv2d(inplanes, self.bottleneck, kernel_size=1, stride=1, bias=False),
-                nn.BatchNorm2d(self.bottleneck),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(self.bottleneck, outplanes, kernel_size=1, stride=1, bias=bias >= 0),
-            )
-            if bias >= 0:
-                nn.init.constant_(self.atten_c[3].bias, bias)
+            self.group_size = group_size
+            self.avg_pool = MaskedAvePooling() if not self.full_feature else nn.AdaptiveAvgPool2d(1)
+            if self.dual_fc:
+                self.atten_c = nn.Sequential(
+                    nn.Linear(inplanes, self.bottleneck),
+                    nn.Linear(self.bottleneck, outplanes // self.group_size)
+                )
+            else:
+                self.atten_c = nn.Sequential(nn.Linear(inplanes, outplanes // self.group_size))
         else:
             self.group_size = group_size
             self.avg_pool = MaskedAvePooling() if not self.full_feature else nn.AdaptiveAvgPool2d(1)
@@ -146,8 +146,12 @@ class Mask_c(nn.Module):
             c_in = self.atten_c(context.view(context.shape[0], -1))
             c_in = self.expand(c_in).view(context.shape[0], -1, 1, 1)
         else:
-            context = self.avg_pool(x)  # [N, C, 1, 1]
-            c_in = self.atten_c(context)
+            if not self.full_feature:
+                context = self.avg_pool(meta["saliency_mask"], meta["mask"][-1])
+            else:
+                context = self.avg_pool(x)  # [N, C, 1, 1]
+            c_in = self.atten_c(context.view(context.shape[0], -1))
+            c_in = self.expand(c_in).view(context.shape[0], -1, 1, 1)
         # transform
         mask_c = self.gate_c(c_in)  # [N, C_out, 1, 1]
         # norm
@@ -162,7 +166,10 @@ class Mask_c(nn.Module):
             else:
                 flops = self.inplanes * self.outplanes / self.group_size
         else:
-            flops = self.inplanes * self.bottleneck + self.bottleneck * self.outplanes
+            if self.dual_fc:
+                flops = self.inplanes * self.bottleneck + self.bottleneck * self.outplanes / self.group_size
+            else:
+                flops = self.inplanes * self.outplanes / self.group_size
         return flops
 
     def expand(self, x):
