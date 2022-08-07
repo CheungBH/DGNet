@@ -124,9 +124,9 @@ class Bottleneck(nn.Module):
                                  **kwargs)
             self.pooling = nn.MaxPool2d(kernel_size=stride)
         else:
-            self.mask_s = Mask_s(self.height_2, self.width_2, inplanes, eta, eta, DPACS=DPACS, **kwargs)
-            self.upsample_1 = nn.Upsample(size=(self.height_1, self.width_1), mode='nearest')
-            self.upsample_2 = nn.Upsample(size=(self.height_2, self.width_2), mode='nearest')
+            self.mask_s = Mask_s(int(stride*self.height_2), int(stride*self.width_2), inplanes, eta, eta, DPACS=DPACS,
+                                 **kwargs)
+            self.pooling = nn.MaxPool2d(kernel_size=stride)
         # conv 1
         self.conv1 = conv1x1(inplanes, width)
         self.bn1 = norm_layer(width)
@@ -178,9 +178,9 @@ class Bottleneck(nn.Module):
             mask_s1 = mask_s_m
             mask_s = self.pooling(mask_s1)
         else:
-            mask_s_m, norm_s, norm_s_t = self.mask_s(x)# [N, 1, h, w]
-            mask_s1 = self.upsample_1(mask_s_m) # [N, 1, H1, W1]
-            mask_s = self.upsample_2(mask_s_m) # [N, 1, H2, W2]
+            mask_s_m, norm_s, norm_s_t = self.mask_s(x)  # [N, 1, h, w]
+            mask_s1 = mask_s_m
+            mask_s = self.pooling(mask_s1)
         if self.channel_stage:
             mask_c1, norm_c1, norm_c1_t = self.mask_c1(x, meta) if self.DPACS else self.mask_c1(x)
         # conv 1
@@ -278,7 +278,7 @@ class ResDG(nn.Module):
             tiles = [1, 1, 1, 1]
         else:
             channels_prune = [True, True, True, True]
-            tiles = [8, 4, 2, 1]
+            tiles = [1, 1, 1, 1]
 
         # residual blocks
         self.layer1, h, w = self._make_layer(block, 64, layers[0], h, w, tiles[0], channel_stage=channels_prune[0],

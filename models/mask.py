@@ -66,8 +66,8 @@ class Mask_s(nn.Module):
             self.mask_kernel = 1
             self.atten_s = nn.Conv2d(planes, 1, kernel_size=1, stride=1, bias=bias>=0, padding=0)
         else:
-            self.mask_kernel = 3
-            self.atten_s = nn.Conv2d(planes, 1, kernel_size=3, stride=1, bias=bias>=0, padding=1)
+            self.mask_kernel = 1
+            self.atten_s = nn.Conv2d(planes, 1, kernel_size=1, stride=1, bias=bias>=0, padding=0)
 
         if bias>=0:
             nn.init.constant_(self.atten_s.bias, bias)
