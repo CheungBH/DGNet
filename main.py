@@ -79,10 +79,6 @@ def main():
             params += [{'params':[value]}]
     optimizer = torch.optim.SGD(params, lr=args.learning_rate,weight_decay=args.weight_decay,
                                 momentum=args.momentum, nesterov=True)
-    if args.lr_mode == "step":
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.schedule)
-    else:
-        raise NotImplementedError
 
     p_anneal = ExpAnnealing(0, 1, 0, alpha=args.alpha)
     # ready
@@ -126,7 +122,7 @@ def main():
     # training
     logging.info('\n Train for {} epochs'.format(args.epochs))
     train_process(model, args.epochs, testloader, trainloader, criterion, optimizer,
-                  use_cuda, args.lbda, args.gamma, p_anneal, checkpoint_dir, args.den_target, lr_scheduler, start_epoch)
+                  use_cuda, args.lbda, args.gamma, p_anneal, checkpoint_dir, args.den_target)
     train_log.close()
     test_log.close()
     logging.info('Best acc: {}'.format(best_acc))
@@ -134,20 +130,17 @@ def main():
 
 
 def train_process(model, total_epochs, testloader, trainloader, criterion, optimizer,
-                  use_cuda, lbda, gamma, p_anneal, checkpoint_dir, den_target, scheduler, start_epoch=0):
+                  use_cuda, lbda, gamma, p_anneal, checkpoint_dir, den_target, start_epoch=0):
     global best_acc
     for epoch in range(start_epoch, total_epochs):
         # get target density
         state['den_target'] = den_target
         # update lr
-        if args.lr_mode != "step":
-            p = p_anneal.get_lr(epoch)
-            adjust_learning_rate(optimizer, epoch=epoch)
+        p = p_anneal.get_lr(epoch)
+        adjust_learning_rate(optimizer, epoch=epoch)
         # Training
         train(trainloader, model, criterion, optimizer, epoch, use_cuda, (lbda, gamma),
               den_target, p)
-        if args.lr_mode == "step":
-            scheduler.step()
         test_acc, _ = validate(testloader, model, criterion, epoch, use_cuda,
                                           (lbda, gamma), den_target, p=p)
         # save checkpoint
