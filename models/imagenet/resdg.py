@@ -201,7 +201,7 @@ class Bottleneck(nn.Module):
             if self.DPACS:
                 out = out * mask_c1 * mask_s if not self.training else out * mask_c1
             else:
-                out = out * mask_c2 * mask_s if not self.training else out * mask_c2
+                out = out * mask_c1 * mask_s if not self.training else out * mask_c1
         else:
             out = out * mask_s if not self.training else out
 
