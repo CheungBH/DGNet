@@ -122,7 +122,7 @@ def main():
     # training
     logging.info('\n Train for {} epochs'.format(args.epochs))
     train_process(model, args.epochs, testloader, trainloader, criterion, optimizer,
-                  use_cuda, args.lbda, args.gamma, p_anneal, checkpoint_dir, args.den_target)
+                  use_cuda, args.lbda, args.gamma, p_anneal, checkpoint_dir, args.den_target, start_epoch=start_epoch)
     train_log.close()
     test_log.close()
     logging.info('Best acc: {}'.format(best_acc))
