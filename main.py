@@ -54,7 +54,7 @@ def main():
     # _ = model(**inputs)
 
     # define loss function (criterion) and optimizer
-    criterion = Loss()
+    criterion = Loss(budget=args.den_target, config_file=args.config_file)
     model.set_criterion(criterion)
 
     # to cuda
