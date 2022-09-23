@@ -66,7 +66,7 @@ class BasicBlock(nn.Module):
         self.flops_mask = torch.Tensor([flops_mks + flops_mkc])
 
     def forward(self, input):
-        x, norm_1, norm_2, flops = input
+        x, norm_1, norm_2, flops, meta = input
         residual = x
         mask_s_m, norm_s, norm_s_t = self.mask_s(x) # [N, 1, h, w]
         mask_c, norm_c, norm_c_t = self.mask_c(x) # [N, C_out, 1, 1]
@@ -90,7 +90,7 @@ class BasicBlock(nn.Module):
         # flops
         flops_blk = self.get_flops(mask_s, mask_c)
         flops = torch.cat((flops, flops_blk.unsqueeze(0)))
-        return (out, norm_1, norm_2, flops)
+        return (out, norm_1, norm_2, flops, meta)
     
     def get_flops(self, mask_s_up, mask_c):
         s_sum = mask_s_up.sum((1,2,3))
