@@ -94,8 +94,8 @@ class Loss(nn.Module):
     
     def forward(self, output, targets, flops_real, flops_mask, flops_ori, batch_size, 
                 den_target, lbda, mask_norm_s, mask_norm_c, norm_s_t, norm_c_t,
-                gamma, p):
-        sample_weight = self.SampleAdjuster.update(output, targets, flops_real, flops_mask, flops_ori, batch_size)
+                gamma, p, epoch):
+        sample_weight = self.SampleAdjuster.update(output, targets, flops_real, flops_mask, flops_ori, batch_size, epoch)
         closs = self.task_loss(output, targets)
         # sloss = self.spar_loss(flops_real, flops_mask, flops_ori, batch_size, den_target, lbda)
         sloss = self.spar_loss.forward_whole(flops_real, flops_mask, flops_ori, batch_size, den_target, lbda,

@@ -333,7 +333,7 @@ class ResDG(nn.Module):
                                 norm_layer=norm_layer,**kwargs))
         return nn.Sequential(*layers), h, w
 
-    def forward(self, x, label, den_target, lbda, gamma, p):
+    def forward(self, x, label, den_target, lbda, gamma, p, epoch):
         # See note [TorchScript super()]
         batch_num, _, _, _ = x.shape
         # conv1
@@ -371,7 +371,7 @@ class ResDG(nn.Module):
         outputs["closs"], outputs["rloss"], outputs["bloss"] = self.get_loss(
                             x, label, batch_num, den_target, lbda, gamma, p,
                             norm_s, norm_c, norm_s_t, norm_c_t, 
-                            flops_real, flops_mask, flops_ori)
+                            flops_real, flops_mask, flops_ori, epoch)
         outputs["out"] = x
         outputs["flops_real"] = flops_real
         outputs["flops_mask"] = flops_mask
@@ -384,10 +384,10 @@ class ResDG(nn.Module):
     
     def get_loss(self, output, label, batch_size, den_target, lbda, gamma, p,
                  mask_norm_s, mask_norm_c, norm_s_t, norm_c_t,
-                 flops_real, flops_mask, flops_ori):
+                 flops_real, flops_mask, flops_ori, epoch):
         closs, rloss, bloss = self.criterion(output, label, flops_real, flops_mask,
                 flops_ori, batch_size, den_target, lbda, mask_norm_s, mask_norm_c,
-                norm_s_t, norm_c_t, gamma, p)
+                norm_s_t, norm_c_t, gamma, p, epoch)
         return closs, rloss, bloss
 
     def record_flops(self, flops_conv, flops_mask, flops_ori, flops_conv1, flops_fc):

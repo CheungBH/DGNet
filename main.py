@@ -183,7 +183,7 @@ def train(train_loader, model, criterion, optimizer, epoch, use_cuda, param,
         batch_size = x.size(0)
         # inference
         inputs = {"x": x, "label": targets, "den_target": den_target, "lbda": lbda,
-                  "gamma": gamma, "p": p}
+                  "gamma": gamma, "p": p, "epoch": epoch}
         outputs = model(**inputs)
         loss = outputs["closs"].mean() + outputs["rloss"].mean() + outputs["bloss"].mean()
         # measure accuracy and record loss
