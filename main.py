@@ -242,7 +242,7 @@ def validate(val_loader, model, criterion, epoch, use_cuda, param, den_target, p
             batch_size = x.size(0)
             # inference
             inputs = {"x": x, "label": targets, "den_target": den_target, "lbda": lbda,
-                      "gamma": gamma, "p": p}
+                      "gamma": gamma, "p": p, "epoch": epoch}
             outputs = model(**inputs)
             loss = outputs["closs"].mean() + outputs["rloss"].mean() + outputs["bloss"].mean()
             # measure accuracy and record loss
