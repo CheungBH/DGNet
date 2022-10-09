@@ -149,6 +149,7 @@ def train_process(model, total_epochs, testloader, trainloader, criterion, optim
             is_best = test_acc > best_acc
             best_acc = max(test_acc, best_acc)
             model_dict = model.module.state_dict() if use_cuda else model.state_dict()
+            save_epoch = epoch if epoch % args.epochs == 0.8 else 0
             save_checkpoint(
                 {
                     'epoch': epoch + 1,
@@ -158,7 +159,8 @@ def train_process(model, total_epochs, testloader, trainloader, criterion, optim
                     'optimizer': optimizer.state_dict()
                 },
                 is_best=is_best,
-                checkpoint_dir=checkpoint_dir)
+                checkpoint_dir=checkpoint_dir,
+                save_epoch=save_epoch)
     return
 
 
@@ -316,11 +318,14 @@ def adjust_learning_rate(optimizer, epoch):
 def save_checkpoint(state,
                     is_best,
                     filename='checkpoint.pth.tar',
-                    checkpoint_dir='.'):
+                    checkpoint_dir='.',
+                    save_epoch=0):
     filename = os.path.join(checkpoint_dir, filename)
     torch.save(state, filename, pickle_protocol=4)
     if is_best:
         shutil.copyfile(filename, os.path.join(checkpoint_dir, 'model_best.pth.tar'))
+    if save_target:
+        shutil.copyfile(filename, os.path.join(checkpoint_dir, 'epoch{}.pth.tar'.format(save_epoch)))
 
 
 if __name__ == "__main__":
