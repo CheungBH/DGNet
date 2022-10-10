@@ -324,7 +324,7 @@ def save_checkpoint(state,
     torch.save(state, filename, pickle_protocol=4)
     if is_best:
         shutil.copyfile(filename, os.path.join(checkpoint_dir, 'model_best.pth.tar'))
-    if save_target:
+    if save_epoch:
         shutil.copyfile(filename, os.path.join(checkpoint_dir, 'epoch{}.pth.tar'.format(save_epoch)))
 
 
