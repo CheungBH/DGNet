@@ -54,7 +54,7 @@ def main():
     # _ = model(**inputs)
 
     # define loss function (criterion) and optimizer
-    criterion = Loss(budget=args.den_target, config_file=args.config_file)
+    criterion = Loss(budget=args.den_target, config_file=args.config_file, flops_loss=args.flops_loss)
     model.set_criterion(criterion)
 
     # to cuda
@@ -290,6 +290,7 @@ def validate(val_loader, model, criterion, epoch, use_cuda, param, den_target, p
                                                                          bloss=blosses, flops_per=flops_per,
                                                                          flops=flops),
                        wrap=True, flush=True)
+        criterion.epoch_finish(flops_per)
     return (top1.avg, top5.avg)
 
 

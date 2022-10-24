@@ -6,8 +6,9 @@ from sample import SampleAdaptor
 
 
 class spar_loss(nn.Module):
-    def __init__(self):
+    def __init__(self, flops_loss=False):
         super(spar_loss, self).__init__()
+        self.flops_loss = flops_loss
 
     def forward_whole(self, flops_real, flops_mask, flops_ori, batch_size, den_target, lbda, sample_weight=None):
         if sample_weight is None:
@@ -19,7 +20,10 @@ class spar_loss(nn.Module):
         flops_ori = flops_ori.sum() + flops_conv1 + flops_fc
         flops_real = flops_mask + flops_backbone
         # loss
-        rloss = lbda * (flops_real / flops_ori - den_target)**2 * sample_weight
+        if not self.flops_loss:
+            rloss = lbda * (flops_real / flops_ori - den_target)**2 * sample_weight
+        else:
+            rloss = lbda * (flops_real / flops_ori)**2 * sample_weight
         return rloss.sum()/batch_size
 
     def forward(self, flops_real, flops_mask, flops_ori, batch_size, den_target, lbda):
@@ -85,10 +89,10 @@ def get_bloss_basic(spar, spar_tar, batch_size, gamma, p):
 
 
 class Loss(nn.Module):
-    def __init__(self, budget=0, config_file=None):
+    def __init__(self, budget=0, config_file=None, **kwargs):
         super(Loss, self).__init__()
         self.task_loss = nn.CrossEntropyLoss()
-        self.spar_loss = spar_loss()
+        self.spar_loss = spar_loss(**kwargs)
         self.balance_loss = blance_loss()
         self.SampleAdjuster = SampleAdaptor(budget, config_file)
     
@@ -105,3 +109,6 @@ class Loss(nn.Module):
         bloss = self.balance_loss.forward_whole(mask_norm_s, mask_norm_c, norm_s_t, norm_c_t, batch_size,
                                   den_target, gamma, p, sample_weight=sample_weight)
         return closs, sloss, bloss
+
+    def epoch_finish(self, ave_ratio):
+        self.SampleAdjuster.average_ratio = ave_ratio

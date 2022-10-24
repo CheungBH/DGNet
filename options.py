@@ -45,3 +45,5 @@ parser.add_argument('--resume', type=str, help='evaluate model on validation set
 parser.add_argument('--group_size', default=64, type=int, help='group size for channel unit')
 parser.add_argument('--dual_fc', action='store_true', help='Use multiple FCs in channel unit')
 parser.add_argument('--config_file', default='', type=str)
+parser.add_argument('--flops_loss', action='store_true', help='Use flops loss to replace flops reduction loss')
+

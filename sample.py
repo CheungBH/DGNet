@@ -12,6 +12,11 @@ class SampleAdaptor:
             self.parse_config(config_file)
         else:
             self.adaptive = False
+        self.average_ratio = 0
+        self.max_FLOPs = 0
+
+    # def update_epoch(self, ave_Mac):
+    #     self.average_ratio = ave_Mac / self.max_FLOPs
 
     def parse_config(self, file):
         import json
