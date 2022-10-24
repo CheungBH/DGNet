@@ -290,7 +290,7 @@ def validate(val_loader, model, criterion, epoch, use_cuda, param, den_target, p
                                                                          bloss=blosses, flops_per=flops_per,
                                                                          flops=flops),
                        wrap=True, flush=True)
-        criterion.epoch_finish(flops_per)
+        criterion.epoch_finish(flops_per/100)
     return (top1.avg, top5.avg)
 
 
